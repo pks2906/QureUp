@@ -65,4 +65,37 @@ export const getAllAppointments = async (req, res) => {
       res.status(500).json({ error: 'Internal server error' });
     }
   };
+
+  export const updateAppointmentStatus = async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+  
+    if (!['COMPLETED', 'SKIPPED', 'CANCELLED'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status value.' });
+    }
+  
+    try {
+      const appointment = await prisma.appointment.update({
+        where: { id },
+        data: { status }
+      });
+  
+      // On COMPLETED: increment queue.currentNo
+      if (status === 'COMPLETED') {
+        await prisma.queue.updateMany({
+          where: { clinicId: appointment.clinicId },
+          data: {
+            currentNo: { increment: 1 },
+            lastCalled: new Date()
+          }
+        });
+      }
+  
+      res.status(200).json({ message: 'Status updated', appointment });
+    } catch (err) {
+      console.error('Error updating status:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  };
+  
   
